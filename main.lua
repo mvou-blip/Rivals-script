@@ -1,7 +1,7 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "Rivals Script | Fixed Aim & ADS",
+   Name = "Rivals Script | Force Lock Aim",
    LoadingTitle = "Загрузка скрипта...",
    LoadingSubtitle = "by Assistant",
    ConfigurationSaving = { Enabled = false }
@@ -49,7 +49,7 @@ local BonePairs = {
     {"LeftLowerLeg", "LeftFoot"},
     {"LowerTorso", "RightUpperLeg"},
     {"RightUpperLeg", "RightLowerLeg"},
-    {"RightRightFoot", "RightFoot"}
+    {"RightLowerLeg", "RightFoot"}
 }
 
 local ESPData = {}
@@ -89,9 +89,9 @@ local function GetESP(player)
     return ESPData[player]
 end
 
--- Отслеживание зажатия ПКМ для активации аимбота
-Services.UserInputService.InputBegan:Connect(function(input, gpe)
-    if not gpe and input.UserInputType == Enum.UserInputType.MouseButton2 then
+-- Отслеживание удерживания ПКМ
+Services.UserInputService.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
         IsTargeting = true
     end
 end)
@@ -102,7 +102,7 @@ Services.UserInputService.InputEnded:Connect(function(input)
     end
 end)
 
--- Поиск наиближайшей цели
+-- Поиск цели
 local function GetClosestTarget()
     local Mouse = Services.LocalPlayer:GetMouse()
     local ClosestPlayer = nil
@@ -130,17 +130,30 @@ local function GetClosestTarget()
     return ClosestPlayer
 end
 
--- RenderStepped для логики аима и визуалов
+-- Принудительная наводка камеры
+local function ForceAim()
+    if AimbotEnabled and IsTargeting then
+        local Target = GetClosestTarget()
+        if Target and Target.Character and Target.Character:FindFirstChild("Head") then
+            local HeadPos = Target.Character.Head.Position
+            Services.Camera.CFrame = CFrame.new(Services.Camera.CFrame.Position, HeadPos)
+        end
+    end
+end
+
+-- Двойной перехват камеры в течение кадра
 Services.RunService.RenderStepped:Connect(function()
+    ForceAim()
+    
     local Mouse = Services.LocalPlayer:GetMouse()
     FOVCircle.Position = Vector2.new(Mouse.X, Mouse.Y + 36)
     FOVCircle.Visible = AimbotEnabled
 
-    -- Рендер FOV и ESP
     if FOVOverride then
         Services.Camera.FieldOfView = TargetFOV
     end
 
+    -- Отрисовка ESP
     for _, player in pairs(Services.Players:GetPlayers()) do
         if player ~= Services.LocalPlayer then
             local esp = GetESP(player)
@@ -206,14 +219,8 @@ Services.RunService.RenderStepped:Connect(function()
     end
 end)
 
--- BindToRenderStep с приоритетом Camera, чтобы перекрывать анимации прицеливания оружием
-Services.RunService:BindToRenderStep("AimbotFix", Enum.RenderPriority.Camera.Value + 1, function()
-    if AimbotEnabled and IsTargeting then
-        local Target = GetClosestTarget()
-        if Target and Target.Character and Target.Character:FindFirstChild("Head") then
-            Services.Camera.CFrame = CFrame.new(Services.Camera.CFrame.Position, Target.Character.Head.Position)
-        end
-    end
+Services.RunService.Stepped:Connect(function()
+    ForceAim()
 end)
 
 Services.Players.PlayerRemoving:Connect(function(player)
@@ -222,7 +229,7 @@ end)
 
 -- UI
 MainTab:CreateToggle({
-   Name = "Аимбот (Удержание ПКМ)",
+   Name = "Аимбот (Зажми ПКМ для залипания)",
    CurrentValue = false,
    Callback = function(Value)
        AimbotEnabled = Value
