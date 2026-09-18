@@ -1,100 +1,127 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local CoreGui = game:GetService("CoreGui")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
--- Настройки
+-- Ждем загрузку игрока
+if not LocalPlayer then
+    Players:GetPropertyChangedSignal("LocalPlayer"):Wait()
+    LocalPlayer = Players.LocalPlayer
+end
+
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+-- Удаляем старое меню, если оно было создано
+if PlayerGui:FindFirstChild("RivalsCustomMenu") then
+    PlayerGui.RivalsCustomMenu:Destroy()
+end
+
+-- Переменные настроек
 local ESPEnabled = false
 local FOVOverride = false
 local TargetFOV = 90
-
--- Хранилище объектов подсветки
 local ESPHighlights = {}
 
+-- === ОЧИСТКА ESP ===
 local function ClearESP(player)
     if ESPHighlights[player] then
-        if ESPHighlights[player].Highlight then ESPHighlights[player].Highlight:Destroy() end
-        if ESPHighlights[player].Billboard then ESPHighlights[player].Billboard:Destroy() end
+        if ESPHighlights[player].Highlight and ESPHighlights[player].Highlight.Parent then
+            ESPHighlights[player].Highlight:Destroy()
+        end
         ESPHighlights[player] = nil
     end
 end
 
--- === ИНТЕРФЕЙС (ScreenGui) ===
-if CoreGui:FindFirstChild("SimpleRivalsMenu") then
-    CoreGui.SimpleRivalsMenu:Destroy()
-end
-
+-- === СОЗДАНИЕ ИНТЕРФЕЙСА (GUI) ===
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "SimpleRivalsMenu"
+ScreenGui.Name = "RivalsCustomMenu"
 ScreenGui.ResetOnSpawn = false
-ScreenGui.Parent = CoreGui
+ScreenGui.Parent = PlayerGui
 
+-- Главная рамка
 local Frame = Instance.new("Frame")
-Frame.Size = UDim2.new(0, 200, 0, 150)
-Frame.Position = UDim2.new(0.02, 0, 0.2, 0)
-Frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+Frame.Name = "MainFrame"
+Frame.Size = UDim2.new(0, 240, 0, 180)
+Frame.Position = UDim2.new(0.05, 0, 0.3, 0)
+Frame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
 Frame.BorderSizePixel = 0
 Frame.Active = true
 Frame.Draggable = true
 Frame.Parent = ScreenGui
 
 local UICorner = Instance.new("UICorner")
-UICorner.CornerRadius = UDim.new(0, 8)
+UICorner.CornerRadius = UDim.new(0, 10)
 UICorner.Parent = Frame
 
+local UIStroke = Instance.new("UIStroke")
+UIStroke.Color = Color3.fromRGB(0, 170, 255)
+UIStroke.Thickness = 2
+UIStroke.Parent = Frame
+
+-- Шапка окна
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, 0, 0, 30)
-Title.Text = "Rivals Menu"
+Title.Name = "Title"
+Title.Size = UDim2.new(1, 0, 0, 40)
+Title.Text = "RIVALS MENU"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.TextSize = 15
-Title.Font = Enum.Font.SourceSansBold
-Title.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+Title.TextSize = 16
+Title.Font = Enum.Font.GothamBold
+Title.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+Title.BorderSizePixel = 0
 Title.Parent = Frame
 
 local TitleCorner = Instance.new("UICorner")
-TitleCorner.CornerRadius = UDim.new(0, 8)
+TitleCorner.CornerRadius = UDim.new(0, 10)
 TitleCorner.Parent = Title
 
+-- Контейнер для кнопок
+local Container = Instance.new("Frame")
+Container.Name = "Container"
+Container.Size = UDim2.new(1, 0, 1, -40)
+Container.Position = UDim2.new(0, 0, 0, 40)
+Container.BackgroundTransparency = 1
+Container.Parent = Frame
+
 local UIList = Instance.new("UIListLayout")
-UIList.Parent = Frame
+UIList.Parent = Container
 UIList.SortOrder = Enum.SortOrder.LayoutOrder
-UIList.Padding = UDim.new(0, 8)
+UIList.Padding = UDim.new(0, 10)
 UIList.HorizontalAlignment = Enum.HorizontalAlignment.Center
+UIList.VerticalAlignment = Enum.VerticalAlignment.Center
 
-Title.LayoutOrder = 0
+-- Функция создания стильных кнопок
+local function CreateToggleButton(text, callback)
+    local Btn = Instance.new("TextButton")
+    Btn.Size = UDim2.new(0.85, 0, 0, 38)
+    Btn.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+    Btn.Text = text .. ": ВЫКЛ"
+    Btn.TextColor3 = Color3.fromRGB(200, 200, 200)
+    Btn.TextSize = 13
+    Btn.Font = Enum.Font.GothamSemibold
+    Btn.Parent = Container
 
-local function CreateBtn(text, order, callback)
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0.9, 0, 0, 35)
-    btn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    btn.Text = text
-    btn.TextColor3 = Color3.fromRGB(200, 200, 200)
-    btn.TextSize = 13
-    btn.Font = Enum.Font.SourceSans
-    btn.LayoutOrder = order
-    btn.Parent = Frame
-    
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 6)
-    corner.Parent = btn
-    
-    local active = false
-    btn.MouseButton1Click:Connect(function()
-        active = not active
-        if active then
-            btn.BackgroundColor3 = Color3.fromRGB(0, 170, 100)
-            btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    local BtnCorner = Instance.new("UICorner")
+    BtnCorner.CornerRadius = UDim.new(0, 8)
+    BtnCorner.Parent = Btn
+
+    local state = false
+    Btn.MouseButton1Click:Connect(function()
+        state = not state
+        if state then
+            Btn.Text = text .. ": ВКЛ"
+            Btn.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+            Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
         else
-            btn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-            btn.TextColor3 = Color3.fromRGB(200, 200, 200)
+            Btn.Text = text .. ": ВЫКЛ"
+            Btn.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+            Btn.TextColor3 = Color3.fromRGB(200, 200, 200)
         end
-        callback(active)
+        callback(state)
     end)
-    return btn
 end
 
-CreateBtn("Включить ESP (Подсветка)", 1, function(val)
+-- Кнопки управления
+CreateToggleButton("Подсветка игроков (ESP)", function(val)
     ESPEnabled = val
     if not val then
         for plr, _ in pairs(ESPHighlights) do
@@ -103,14 +130,14 @@ CreateBtn("Включить ESP (Подсветка)", 1, function(val)
     end
 end)
 
-CreateBtn("Растяжка FOV (90°)", 2, function(val)
+CreateToggleButton("Растяжка кадра (FOV 90°)", function(val)
     FOVOverride = val
     if not val then
         Camera.FieldOfView = 70
     end
 end)
 
--- === ОБРАБОТКА ЛОГИКИ ===
+-- === ОСНОВНОЙ ЦИКЛ (ESP + FOV) ===
 RunService.RenderStepped:Connect(function()
     if FOVOverride then
         Camera.FieldOfView = TargetFOV
@@ -118,17 +145,17 @@ RunService.RenderStepped:Connect(function()
 
     if ESPEnabled then
         for _, player in pairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            if player ~= LocalPlayer and player.Character then
                 local char = player.Character
                 local hum = char:FindFirstChildOfClass("Humanoid")
-                
+
                 if hum and hum.Health > 0 then
                     if not ESPHighlights[player] then
                         local hl = Instance.new("Highlight")
-                        hl.Name = "ESPHighlight"
-                        hl.FillColor = Color3.fromRGB(255, 50, 50)
+                        hl.Name = "RivalsHighlight"
+                        hl.FillColor = Color3.fromRGB(255, 40, 40)
                         hl.OutlineColor = Color3.fromRGB(255, 255, 255)
-                        hl.FillTransparency = 0.5
+                        hl.FillTransparency = 0.4
                         hl.OutlineTransparency = 0
                         hl.Parent = char
 
