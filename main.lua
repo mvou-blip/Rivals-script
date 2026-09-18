@@ -1,17 +1,10 @@
-local OrionLib = loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Orion/main/source'))()
-
-local Window = OrionLib:MakeWindow({
-    Name = "Rivals Script | Orion UI",
-    HidePremium = true,
-    SaveConfig = false,
-    ConfigFolder = "OrionTest"
-})
-
-local MainTab = Window:MakeTab({
-    Name = "Главная",
-    Icon = "rbxassetid://4483362458",
-    PremiumOnly = false
-})
+local Services = {
+    Players = game:GetService("Players"),
+    RunService = game:GetService("RunService"),
+    UserInputService = game:GetService("UserInputService"),
+    Camera = workspace.CurrentCamera,
+    LocalPlayer = game:GetService("Players").LocalPlayer
+}
 
 -- Настройки
 local SmoothCamEnabled = false
@@ -20,13 +13,6 @@ local Smoothness = 0.2
 local ESPEnabled = false
 local TargetFOV = 70
 local FOVOverride = false
-
-local Services = {
-    Players = game:GetService("Players"),
-    RunService = game:GetService("RunService"),
-    Camera = workspace.CurrentCamera,
-    LocalPlayer = game:GetService("Players").LocalPlayer
-}
 
 -- Круг FOV
 local FOVCircle = Drawing.new("Circle")
@@ -37,7 +23,7 @@ FOVCircle.Radius = AimFOV
 FOVCircle.Filled = false
 FOVCircle.Visible = false
 
--- Кости R15
+-- Структура скелета
 local BonePairs = {
     {"Head", "UpperTorso"},
     {"UpperTorso", "LowerTorso"},
@@ -119,6 +105,7 @@ local function GetClosestTarget()
     return ClosestPlayer
 end
 
+-- === РЕНДЕР И ЛОГИКА ===
 Services.RunService.RenderStepped:Connect(function()
     local Mouse = Services.LocalPlayer:GetMouse()
     FOVCircle.Position = Vector2.new(Mouse.X, Mouse.Y + 36)
@@ -205,62 +192,90 @@ Services.Players.PlayerRemoving:Connect(function(player)
     ClearESP(player)
 end)
 
--- Элементы управления
-MainTab:AddToggle({
-    Name = "Плавная камера (Smooth Target)",
-    Default = false,
-    Callback = function(Value)
-        SmoothCamEnabled = Value
-    end    
-})
+-- === СОЗДАНИЕ ВСТРОЕННОГО ИНТЕРФЕЙСА (ScreenGui) ===
+local CoreGui = game:GetService("CoreGui")
+if CoreGui:FindFirstChild("SimpleRivalsMenu") then
+    CoreGui.SimpleRivalsMenu:Destroy()
+end
 
-MainTab:AddSlider({
-    Name = "Плавность",
-    Min = 0.05,
-    Max = 1,
-    Default = 0.2,
-    Color = Color3.fromRGB(255,255,255),
-    Increment = 0.05,
-    ValueName = "mult",
-    Callback = function(Value)
-        Smoothness = Value
-    end    
-})
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "SimpleRivalsMenu"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = CoreGui
 
-MainTab:AddSlider({
-    Name = "Радиус FOV",
-    Min = 30,
-    Max = 300,
-    Default = 120,
-    Color = Color3.fromRGB(255,255,255),
-    Increment = 5,
-    ValueName = "px",
-    Callback = function(Value)
-        AimFOV = Value
-        FOVCircle.Radius = Value
-    end    
-})
+local Frame = Instance.new("Frame")
+Frame.Size = UDim2.new(0, 220, 0, 240)
+Frame.Position = UDim2.new(0.05, 0, 0.2, 0)
+Frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+Frame.BorderSizePixel = 0
+Frame.Active = true
+Frame.Draggable = true
+Frame.Parent = ScreenGui
 
-MainTab:AddToggle({
-    Name = "Skeleton ESP + HP Bar",
-    Default = false,
-    Callback = function(Value)
-        ESPEnabled = Value
-    end    
-})
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 8)
+UICorner.Parent = Frame
 
-MainTab:AddSlider({
-    Name = "FOV Камеры",
-    Min = 70,
-    Max = 130,
-    Default = 70,
-    Color = Color3.fromRGB(255,255,255),
-    Increment = 1,
-    ValueName = "°",
-    Callback = function(Value)
-        TargetFOV = Value
-        FOVOverride = true
-    end    
-})
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 35)
+Title.Text = "Rivals Menu"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 16
+Title.Font = Enum.Font.SourceSansBold
+Title.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+Title.Parent = Frame
 
-OrionLib:Init()
+local TitleCorner = Instance.new("UICorner")
+TitleCorner.CornerRadius = UDim.new(0, 8)
+TitleCorner.Parent = Title
+
+local UIList = Instance.new("UIListLayout")
+UIList.Parent = Frame
+UIList.SortOrder = Enum.SortOrder.LayoutOrder
+UIList.Padding = UDim.new(0, 8)
+UIList.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+Title.LayoutOrder = 0
+
+local function CreateBtn(text, order, callback)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0.9, 0, 0, 35)
+    btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    btn.Text = text
+    btn.TextColor3 = Color3.fromRGB(200, 200, 200)
+    btn.TextSize = 14
+    btn.Font = Enum.Font.SourceSans
+    btn.LayoutOrder = order
+    btn.Parent = Frame
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 6)
+    corner.Parent = btn
+    
+    local active = false
+    btn.MouseButton1Click:Connect(function()
+        active = not active
+        if active then
+            btn.BackgroundColor3 = Color3.fromRGB(0, 170, 100)
+            btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        else
+            btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+            btn.TextColor3 = Color3.fromRGB(200, 200, 200)
+        end
+        callback(active)
+    end)
+    return btn
+end
+
+CreateBtn("Плавная камера (Smooth)", 1, function(val)
+    SmoothCamEnabled = val
+end)
+
+CreateBtn("Skeleton ESP + HP Bar", 2, function(val)
+    ESPEnabled = val
+end)
+
+CreateBtn("Растяжка FOV (90°)", 3, function(val)
+    FOVOverride = val
+    TargetFOV = val and 90 or 70
+end)
