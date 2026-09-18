@@ -1,18 +1,22 @@
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local OrionLib = loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Orion/main/source'))()
 
-local Window = Rayfield:CreateWindow({
-   Name = "Rivals Script | Visuals & Smooth Cam",
-   LoadingTitle = "Загрузка скрипта...",
-   LoadingSubtitle = "by Assistant",
-   ConfigurationSaving = { Enabled = false }
+local Window = OrionLib:MakeWindow({
+    Name = "Rivals Script | Orion UI",
+    HidePremium = true,
+    SaveConfig = false,
+    ConfigFolder = "OrionTest"
 })
 
-local MainTab = Window:CreateTab("Главная", 4483362458)
+local MainTab = Window:MakeTab({
+    Name = "Главная",
+    Icon = "rbxassetid://4483362458",
+    PremiumOnly = false
+})
 
 -- Настройки
 local SmoothCamEnabled = false
 local AimFOV = 120
-local Smoothness = 0.2 -- Коэффициент сглаживания (0.1 - очень плавно, 1.0 - мгновенно)
+local Smoothness = 0.2
 local ESPEnabled = false
 local TargetFOV = 70
 local FOVOverride = false
@@ -33,7 +37,7 @@ FOVCircle.Radius = AimFOV
 FOVCircle.Filled = false
 FOVCircle.Visible = false
 
--- Кости для R15 (исправлены возможные опечатки в названиях частей)
+-- Кости R15
 local BonePairs = {
     {"Head", "UpperTorso"},
     {"UpperTorso", "LowerTorso"},
@@ -115,28 +119,23 @@ local function GetClosestTarget()
     return ClosestPlayer
 end
 
--- Главный цикл отрисовки и ведения камеры
 Services.RunService.RenderStepped:Connect(function()
     local Mouse = Services.LocalPlayer:GetMouse()
     FOVCircle.Position = Vector2.new(Mouse.X, Mouse.Y + 36)
     FOVCircle.Visible = SmoothCamEnabled
 
-    -- 1. Сглаженное слежение за объектом через Lerp (без рывков)
     if SmoothCamEnabled then
         local Target = GetClosestTarget()
         if Target and Target.Character and Target.Character:FindFirstChild("Head") then
             local TargetCFrame = CFrame.new(Services.Camera.CFrame.Position, Target.Character.Head.Position)
-            -- Плавная интерполяция позиции CFrame
             Services.Camera.CFrame = Services.Camera.CFrame:Lerp(TargetCFrame, Smoothness)
         end
     end
 
-    -- 2. Фиксация FOV
     if FOVOverride then
         Services.Camera.FieldOfView = TargetFOV
     end
 
-    -- 3. Отрисовка Skeleton ESP и HP Bar
     for _, player in pairs(Services.Players:GetPlayers()) do
         if player ~= Services.LocalPlayer then
             local esp = GetESP(player)
@@ -206,54 +205,62 @@ Services.Players.PlayerRemoving:Connect(function(player)
     ClearESP(player)
 end)
 
--- UI
-MainTab:CreateToggle({
-   Name = "Плавная камера (Smooth Target)",
-   CurrentValue = false,
-   Callback = function(Value)
-       SmoothCamEnabled = Value
-   end,
+-- Элементы управления
+MainTab:AddToggle({
+    Name = "Плавная камера (Smooth Target)",
+    Default = false,
+    Callback = function(Value)
+        SmoothCamEnabled = Value
+    end    
 })
 
-MainTab:CreateSlider({
-   Name = "Плавность ведения",
-   Range = {0.05, 1},
-   Increment = 0.05,
-   Suffix = "mult",
-   CurrentValue = 0.2,
-   Callback = function(Value)
-       Smoothness = Value
-   end,
+MainTab:AddSlider({
+    Name = "Плавность",
+    Min = 0.05,
+    Max = 1,
+    Default = 0.2,
+    Color = Color3.fromRGB(255,255,255),
+    Increment = 0.05,
+    ValueName = "mult",
+    Callback = function(Value)
+        Smoothness = Value
+    end    
 })
 
-MainTab:CreateSlider({
-   Name = "Радиус FOV",
-   Range = {30, 300},
-   Increment = 5,
-   Suffix = "px",
-   CurrentValue = 120,
-   Callback = function(Value)
-       AimFOV = Value
-       FOVCircle.Radius = Value
-   end,
+MainTab:AddSlider({
+    Name = "Радиус FOV",
+    Min = 30,
+    Max = 300,
+    Default = 120,
+    Color = Color3.fromRGB(255,255,255),
+    Increment = 5,
+    ValueName = "px",
+    Callback = function(Value)
+        AimFOV = Value
+        FOVCircle.Radius = Value
+    end    
 })
 
-MainTab:CreateToggle({
-   Name = "Skeleton ESP + HP Bar",
-   CurrentValue = false,
-   Callback = function(Value)
-       ESPEnabled = Value
-   end,
+MainTab:AddToggle({
+    Name = "Skeleton ESP + HP Bar",
+    Default = false,
+    Callback = function(Value)
+        ESPEnabled = Value
+    end    
 })
 
-MainTab:CreateSlider({
-   Name = "FOV Камеры (Растяжка)",
-   Range = {70, 130},
-   Increment = 1,
-   Suffix = "°",
-   CurrentValue = 70,
-   Callback = function(Value)
-       TargetFOV = Value
-       FOVOverride = true
-   end,
+MainTab:AddSlider({
+    Name = "FOV Камеры",
+    Min = 70,
+    Max = 130,
+    Default = 70,
+    Color = Color3.fromRGB(255,255,255),
+    Increment = 1,
+    ValueName = "°",
+    Callback = function(Value)
+        TargetFOV = Value
+        FOVOverride = true
+    end    
 })
+
+OrionLib:Init()
